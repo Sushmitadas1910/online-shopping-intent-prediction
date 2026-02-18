@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -16,7 +17,12 @@ st.write("Predict whether a user session will result in a purchase (Revenue = 1)
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv("online_shoppers_intention.csv", encoding="latin1")
+    # ✅ Always load CSV relative to this app.py file (works on Streamlit Cloud)
+    base_path = os.path.dirname(__file__)
+    file_path = os.path.join(base_path, "online_shoppers_intention.csv")
+
+    df = pd.read_csv(file_path, encoding="latin1")
+
     # drop weird junk PK column if present
     df = df.loc[:, ~df.columns.str.contains("PK", case=False, na=False)]
     df = df.dropna(subset=["Revenue"])
@@ -68,13 +74,11 @@ st.success(f"Model trained successfully. Test Accuracy: {acc:.3f}")
 
 st.subheader("Enter a new session (inputs)")
 
-# Build input UI dynamically from columns
 user_input = {}
 for col in X_template.columns:
     if str(X_template[col].dtype) == "object":
         user_input[col] = st.selectbox(col, sorted(X_template[col].dropna().unique().tolist()))
     else:
-        # numeric input
         default_val = float(X_template[col].median())
         user_input[col] = st.number_input(col, value=default_val)
 
@@ -82,12 +86,11 @@ input_df = pd.DataFrame([user_input])
 
 if st.button("Predict"):
     pred = pipe.predict(input_df)[0]
-    prob = pipe.predict_proba(input_df)[0][1] if hasattr(pipe.named_steps["model"], "predict_proba") else None
+    prob = pipe.predict_proba(input_df)[0][1]
 
     if pred == 1:
         st.success("✅ Prediction: Purchase (Revenue = 1)")
     else:
         st.warning("❌ Prediction: No Purchase (Revenue = 0)")
 
-    if prob is not None:
-        st.write(f"Purchase probability: **{prob:.2f}**")
+    st.write(f"Purchase probability: **{prob:.2f}**")
